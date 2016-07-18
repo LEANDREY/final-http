@@ -226,14 +226,14 @@ void worker(struct ev_loop *loop, struct ev_io *w, int revents) {
     std::cout << "worker: fd " << fd << std::endl;
 #endif
 
-    sock_fd_read(fd, tmp, sizeof(tmp), &slave_socket);
+    ssize_t size = sock_fd_read(fd, tmp, sizeof(tmp), &slave_socket);
     if (slave_socket == -1){
         std::cout << "worker: slave_socket == -1" << std::endl;
         exit(4);
     }
 
 #ifdef DEBUG
-    std::cout << "worker: got slave socket " << slave_socket << std::endl;
+    std::cout << "worker: got slave socket " << slave_socket << " msg size " << size << std::endl;
 #endif
 
     // do it
@@ -256,9 +256,9 @@ void set_worker_free(struct ev_loop *loop, struct ev_io *w, int revents){
     int slave_socket;
     bool shutdownflag = false;
 
-    sock_fd_read(fd, tmp, sizeof(tmp), &slave_socket);
+    ssize_t size = sock_fd_read(fd, tmp, sizeof(tmp), &slave_socket);
 #ifdef DEBUG
-    std::cout << "set_worker_free: got slave socket " << slave_socket << std::endl;
+    std::cout << "set_worker_free: fd" << fd << " got slave socket " << slave_socket << " msg size " << size << std::endl;
 #endif
 
     // here we can restore watcher for the slave socket
@@ -279,8 +279,10 @@ void set_worker_free(struct ev_loop *loop, struct ev_io *w, int revents){
 #ifdef DEBUG    
        std::cout << "shutdown [2] : socket " << slave_socket_original << " is free now" << std::endl;
 #endif
-       shutdown(slave_socket_original, SHUT_RDWR);
-       close(slave_socket_original);
+       if(slave_socket_original > 0) {	
+       		shutdown(slave_socket_original, SHUT_RDWR);
+       		close(slave_socket_original);
+	}
     }
 	
     workers[fd] = true;
