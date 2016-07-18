@@ -31,6 +31,7 @@ int set_nonblock(int fd);
 
 std::map<int, bool> workers;
 std::list<int> ready_read_sockets;
+std::map<int, int> workers_shutdown;
 
 sem_t* locker;
 char *host = 0, *port = 0, *dir = 0;
@@ -103,8 +104,9 @@ void slave_send_to_worker(struct ev_loop *loop, struct ev_io *w, int revents) {
             (*it).second = false;
 
             char tmp[1];
+            workers_shutdown[(*it).first] = slave_socket;
             sock_fd_write((*it).first, tmp, sizeof(tmp), slave_socket);
-
+	     	
 #ifdef DEBUG
             std::cout << "slave_send_to_worker: sent slave socket " << slave_socket << " to worker" << std::endl;
 #endif
@@ -262,7 +264,7 @@ void set_worker_free(struct ev_loop *loop, struct ev_io *w, int revents){
     // here we can restore watcher for the slave socket
 
     // complete all the work from the queue
-    int slave_socket_original = slave_socket;
+    int slave_socket_original = workers_shutdown[fd];
     while ((slave_socket = safe_pop_front()) != -1) {
         process_slave_socket(slave_socket);
 #ifdef DEBUG    
