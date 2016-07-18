@@ -258,13 +258,14 @@ void set_worker_free(struct ev_loop *loop, struct ev_io *w, int revents){
 
     ssize_t size = sock_fd_read(fd, tmp, sizeof(tmp), &slave_socket);
 #ifdef DEBUG
-    std::cout << "set_worker_free: fd" << fd << " got slave socket " << slave_socket << " msg size " << size << std::endl;
+    std::cout << "set_worker_free: fd " << fd << " got slave socket " << slave_socket << " msg size " << size << std::endl;
 #endif
 
     // here we can restore watcher for the slave socket
 
     // complete all the work from the queue
-    int slave_socket_original = workers_shutdown[fd];
+    int slave_socket_original_1 = slave_socket;
+    int slave_socket_original_2 = workers_shutdown[fd];
     while ((slave_socket = safe_pop_front()) != -1) {
         process_slave_socket(slave_socket);
 #ifdef DEBUG    
@@ -277,11 +278,15 @@ void set_worker_free(struct ev_loop *loop, struct ev_io *w, int revents){
 
     if(shutdownflag == false) {
 #ifdef DEBUG    
-       std::cout << "shutdown [2] : socket " << slave_socket_original << " is free now" << std::endl;
+       std::cout << "shutdown [2] : socket 1 " << slave_socket_original_1 <<" socket 2 "<< slave_socket_original_2 << " is close now" << std::endl;
 #endif
-       if(slave_socket_original > 0) {	
-       		shutdown(slave_socket_original, SHUT_RDWR);
-       		close(slave_socket_original);
+       if(slave_socket_original_1 > 0) {
+		shutdown(slave_socket_original_1, SHUT_RDWR);
+                close(slave_socket_original_1);
+       }
+       if(slave_socket_original_2 > 0) {	
+       		shutdown(slave_socket_original_2, SHUT_RDWR);
+       		close(slave_socket_original_2);
 	}
     }
 	
