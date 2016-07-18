@@ -87,7 +87,6 @@ void slave_send_to_worker(struct ev_loop *loop, struct ev_io *w, int revents) {
     int slave_socket = w->fd;
 
     ev_io_stop(loop, w);
-    //close(slave_socket);
 
 #ifdef DEBUG
     std::cout << "slave_send_to_worker: got slave socket " << slave_socket << std::endl;
@@ -95,6 +94,9 @@ void slave_send_to_worker(struct ev_loop *loop, struct ev_io *w, int revents) {
 
     // find a free worker and send slave socket to it
     for(auto it = workers.begin(); it != workers.end(); it++){
+#ifdef DEBUG
+            std::cout << "worker status: number " << (*it).first << "status " << (*it).second << std::endl;
+#endif
         if ((*it).second)
         {
             // found free worker, it is busy from now
@@ -211,10 +213,18 @@ void worker(struct ev_loop *loop, struct ev_io *w, int revents) {
 #endif
 
     // get appropriate slave socket and read from it
+    int fd = w->fd;
     int slave_socket;
     char tmp[1];
 
-    sock_fd_read(w->fd, tmp, sizeof(tmp), &slave_socket);
+#ifdef DEBUG
+    for(auto it = workers.begin(); it != workers.end(); it++){
+            std::cout << "in worker function worker status: number " << (*it).first << "status " << (*it).second << std::endl;
+    }
+    std::cout << "worker: fd " << fd << std::endl;
+#endif
+
+    sock_fd_read(fd, tmp, sizeof(tmp), &slave_socket);
     if (slave_socket == -1){
         std::cout << "worker: slave_socket == -1" << std::endl;
         exit(4);
@@ -228,8 +238,8 @@ void worker(struct ev_loop *loop, struct ev_io *w, int revents) {
     process_slave_socket(slave_socket);
 
     // write back to paired socket to update worker status
+    // 18.07.2016 debug
     sock_fd_write(w->fd, tmp, sizeof(tmp), slave_socket);
-
 #ifdef DEBUG
     std::cout << "worker: sent slave socket " << slave_socket << std::endl;
 #endif
@@ -242,6 +252,7 @@ void set_worker_free(struct ev_loop *loop, struct ev_io *w, int revents){
 
     char tmp[1];
     int slave_socket;
+    bool shutdownflag = false;
 
     sock_fd_read(fd, tmp, sizeof(tmp), &slave_socket);
 #ifdef DEBUG
@@ -251,10 +262,25 @@ void set_worker_free(struct ev_loop *loop, struct ev_io *w, int revents){
     // here we can restore watcher for the slave socket
 
     // complete all the work from the queue
+    int slave_socket_original = slave_socket;
     while ((slave_socket = safe_pop_front()) != -1) {
         process_slave_socket(slave_socket);
-    }
+#ifdef DEBUG    
+        std::cout << "shutdown [1] : socket " << slave_socket << " is free now" << std::endl;
+#endif
+        shutdownflag = true;
+	shutdown(slave_socket, SHUT_RDWR);
+    	close(slave_socket);
+    } 
 
+    if(shutdownflag == false) {
+#ifdef DEBUG    
+       std::cout << "shutdown [2] : socket " << slave_socket_original << " is free now" << std::endl;
+#endif
+       shutdown(slave_socket_original, SHUT_RDWR);
+       close(slave_socket_original);
+    }
+	
     workers[fd] = true;
 #ifdef DEBUG    
     std::cout << "set_worker_free: worker associated with paired socket " << fd << " is free now" << std::endl;
@@ -268,6 +294,7 @@ pid_t create_worker(){
         exit(1);
     }
 
+   
     // get default loop
     struct ev_loop* loop = EV_DEFAULT;
 
@@ -281,6 +308,7 @@ pid_t create_worker(){
         workers.insert(std::pair<int, bool>(sp[0], true));
 
         // to detect the worker finished work with a socket
+        //18.07.2016
         struct ev_io* half_watcher = new ev_io;
         ev_init(half_watcher, set_worker_free);
         ev_io_set(half_watcher, sp[0], EV_READ);
