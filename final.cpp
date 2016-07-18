@@ -245,6 +245,11 @@ void worker(struct ev_loop *loop, struct ev_io *w, int revents) {
 #ifdef DEBUG
     std::cout << "worker: sent slave socket " << slave_socket << std::endl;
 #endif
+    if(slave_socket > 0) {
+    	shutdown(slave_socket, SHUT_RDWR);
+        close(slave_socket);
+    }
+	
 }
 
 
