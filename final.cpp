@@ -21,7 +21,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-//#define DEBUG
+#define DEBUG
 #define MAX_WORKER 4
 
 ssize_t sock_fd_write(int sock, void *buf, ssize_t buflen, int fd);
@@ -511,9 +511,9 @@ int main(int argc, char* argv[]) {
     }
 
 #ifdef DEBUG
-    //std::ofstream out("./final.log");
-    //std::streambuf *coutbuf = std::cout.rdbuf(); //save old buf
-    //std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out.txt!
+    std::ofstream out("/tmp/final.log");
+    std::streambuf *coutbuf = std::cout.rdbuf(); //save old buf
+    std::cout.rdbuf(out.rdbuf()); //redirect std::cout to out.txt!
     std::cout << "main begin, parent pid is " << getpid() << std::endl;
 #endif
 
@@ -525,7 +525,6 @@ int main(int argc, char* argv[]) {
          return 0;
     }
 
-
     if (create_worker() == 0) {
         std::cout << "Worker 2 is about to return" << std::endl;
         return 0;
@@ -535,6 +534,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Worker 3 is about to return" << std::endl;
         return 0;
     }
+
 
     // Master socket, think non-blocking
     int master_socket = socket(AF_INET, SOCK_STREAM, 0);
